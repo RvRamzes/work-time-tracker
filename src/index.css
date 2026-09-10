@@ -1,7 +1,35 @@
 /* src/index.css */
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  background-color: #1a1a1a;
+
+  /* =========================================
+     ПАЛІТРА КОЛЬОРІВ (Єдине джерело правди)
+     ========================================= */
+  
+  /* Основні акценти */
+  --primary-color: #646cff;
+  --bg-color: #1a1a1a;
+  --card-bg: #222222;
+  --border-color: #333333;
+
+  /* Кольори ролей */
+  --role-sales: #22c55e;        /* Капітан Залу */
+  --role-sales-bg: #0d2818;
+
+  --role-vto: #818cf8;          /* Магістр обліку */
+  --role-vto-border: #4f46e5;
+  --role-vto-bg: #141c38;
+
+  --role-loader: #fb923c;       /* Логіст */
+  --role-loader-border: #ea580c;
+  --role-loader-bg: #2d1810;
+
+  /* Режим Біржі та Старту */
+  --exchange-color: #eab308;
+  --exchange-border: #f59e0b;
+  --start-green: #46a758;
+
+  background-color: var(--bg-color);
   color: #fff;
 }
 
@@ -20,14 +48,14 @@ body {
 .app-header {
   margin-bottom: 20px;
   text-align: center;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--border-color);
   padding-bottom: 12px;
 }
 
 .app-title {
   font-size: 22px;
   font-weight: bold;
-  color: #646cff;
+  color: var(--primary-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -37,22 +65,22 @@ body {
 
 /* --- КАРТКИ ТА КОНТЕЙНЕРИ --- */
 .card {
-  background: #222;
+  background: var(--card-bg);
   padding: 20px;
   border-radius: 16px;
-  border: 1px solid #333;
+  border: 1px solid var(--border-color);
   transition: all 0.3s ease;
 }
 
 /* Активний режим Біржі (для вибору та для таймера) */
 .card-exchange-glow {
-  border: 1.5px solid #eab308 !important;
+  border: 1.5px solid var(--exchange-color) !important;
   box-shadow: 0 0 18px rgba(234, 179, 8, 0.25);
 }
 
 /* Звичайна активна зміна (чистий темний стиль) */
 .card-active {
-  border-color: #333;
+  border-color: var(--border-color);
 }
 
 .label {
@@ -87,9 +115,9 @@ body {
 }
 
 .btn-toggle-single.active-exchange {
-  background: #eab308 !important;
+  background: var(--exchange-color) !important;
   color: #000 !important;
-  border-color: #f59e0b !important;
+  border-color: var(--exchange-border) !important;
   box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
 }
 
@@ -122,24 +150,24 @@ body {
 
 /* Активні неонові стани ролей */
 .role-sales-active {
-  background: #0d2818 !important;
-  border-color: #22c55e !important;
+  background: var(--role-sales-bg) !important;
+  border-color: var(--role-sales) !important;
   box-shadow: 0 0 15px rgba(34, 197, 94, 0.35);
-  color: #22c55e !important;
+  color: var(--role-sales) !important;
 }
 
 .role-vto-active {
-  background: #141c38 !important;
-  border-color: #4f46e5 !important;
+  background: var(--role-vto-bg) !important;
+  border-color: var(--role-vto-border) !important;
   box-shadow: 0 0 15px rgba(79, 70, 229, 0.35);
-  color: #818cf8 !important;
+  color: var(--role-vto) !important;
 }
 
 .role-loader-active {
-  background: #2d1810 !important;
-  border-color: #ea580c !important;
+  background: var(--role-loader-bg) !important;
+  border-color: var(--role-loader-border) !important;
   box-shadow: 0 0 15px rgba(234, 88, 12, 0.35);
-  color: #fb923c !important;
+  color: var(--role-loader) !important;
 }
 
 /* --- КНОПКИ ДІЙ --- */
@@ -162,8 +190,8 @@ body {
 }
 
 .btn-toggle.active {
-  background: #646cff;
-  border-color: #646cff;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .btn-main {
@@ -184,14 +212,14 @@ body {
 
 /* Звичайна кнопка старту (Зелена) */
 .btn-start { 
-  background: #46a758; 
+  background: var(--start-green); 
   box-shadow: 0 0 12px rgba(70, 167, 88, 0.2);
 }
 
 /* Кнопка старту для Біржі (Жовто-золота) */
 .btn-start-exchange {
-  background: #eab308 !important;
-  border: 1px solid #f59e0b !important;
+  background: var(--exchange-color) !important;
+  border: 1px solid var(--exchange-border) !important;
   box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
   color: #000 !important;
 }
@@ -222,8 +250,8 @@ body {
   justify-content: flex-start;
   padding-top: 6px;
   aspect-ratio: 1;
-  background: #1a1a1a;
-  border: 1px solid #333;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   color: #fff;
   cursor: pointer;
@@ -231,23 +259,23 @@ body {
 }
 
 .calendar-day-btn.has-data-regular:not(.selected) {
-  border-color: #46a758;
+  border-color: var(--start-green);
   font-weight: bold;
 }
 
 .calendar-day-btn.has-data-exchange:not(.selected) {
-  border-color: #ffb400;
+  border-color: var(--exchange-color);
   font-weight: bold;
 }
 
 .calendar-day-btn.has-data-mixed:not(.selected) {
-  border-color: #646cff;
+  border-color: var(--primary-color);
   font-weight: bold;
 }
 
 .calendar-day-btn.selected {
-  background: #646cff !important;
-  border-color: #646cff !important;
+  background: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
   color: #fff !important;
   font-weight: bold;
 }
@@ -263,8 +291,8 @@ body {
   pointer-events: none;
 }
 
-.calendar-day-btn.has-data-regular .hours-badge { color: #46a758; }
-.calendar-day-btn.has-data-exchange .hours-badge { color: #ffb400; }
+.calendar-day-btn.has-data-regular .hours-badge { color: var(--start-green); }
+.calendar-day-btn.has-data-exchange .hours-badge { color: var(--exchange-color); }
 .calendar-day-btn.has-data-mixed .hours-badge { color: #ffffff; }
 .calendar-day-btn.selected .hours-badge { display: none; }
 
