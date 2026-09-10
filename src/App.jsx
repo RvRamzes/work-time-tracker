@@ -61,13 +61,11 @@ export default function App() {
   }, [activeSession]);
 
   // --- ФУНКЦІЇ ЛОГІКИ ---
-  // Модернізуємо startWork, щоб вона записувала і тип, і обрану роль
-const startWork = (roleToStart) => {
+  const startWork = (roleToStart) => {
     if (activeSession) return alert('У вас вже є активна зміна!');
     
     const role = roleToStart || selectedRole;
     
-    // Створюємо нову активну сесію
     const newSession = { 
       id: Date.now(), 
       startTime: new Date().toISOString(), 
@@ -108,7 +106,6 @@ const startWork = (roleToStart) => {
     if (confirm('Видалити цей запис?')) setSessions(sessions.filter(s => s.id !== id));
   };
 
-  // Нова функція для збереження відредагованої зміни
   const updateSession = (updatedSession) => {
     const start = new Date(updatedSession.startTime);
     const end = new Date(updatedSession.endTime);
@@ -143,7 +140,7 @@ const startWork = (roleToStart) => {
           top: '20px',
           left: '50%',
           transform: 'translateX(-50%)',
-          background: '#46a758',
+          background: 'var(--start-green)',
           color: '#fff',
           padding: '12px 24px',
           borderRadius: '8px',
@@ -199,9 +196,27 @@ const startWork = (roleToStart) => {
 
       {/* НИЖНЄ МЕНЮ НАВІГАЦІЇ */}
       <nav className="nav-bar">
-        <button onClick={() => setCurrentTab('main')} className="nav-btn" style={{ color: currentTab === 'main' ? '#646cff' : '#666' }}><Clock size={20} /> Головна</button>
-        <button onClick={() => setCurrentTab('history')} className="nav-btn" style={{ color: currentTab === 'history' ? '#646cff' : '#666' }}><Calendar size={20} /> Історія</button>
-        <button onClick={() => setCurrentTab('stats')} className="nav-btn" style={{ color: currentTab === 'stats' ? '#646cff' : '#666' }}><BarChart2 size={20} /> Статистика</button>
+        <button 
+          onClick={() => setCurrentTab('main')} 
+          className="nav-btn" 
+          style={{ color: currentTab === 'main' ? 'var(--primary-color)' : '#666' }}
+        >
+          <Clock size={20} /> Головна
+        </button>
+        <button 
+          onClick={() => setCurrentTab('history')} 
+          className="nav-btn" 
+          style={{ color: currentTab === 'history' ? 'var(--primary-color)' : '#666' }}
+        >
+          <Calendar size={20} /> Історія
+        </button>
+        <button 
+          onClick={() => setCurrentTab('stats')} 
+          className="nav-btn" 
+          style={{ color: currentTab === 'stats' ? 'var(--primary-color)' : '#666' }}
+        >
+          <BarChart2 size={20} /> Статистика
+        </button>
       </nav>
     </div>
   );
