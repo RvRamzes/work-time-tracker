@@ -67,6 +67,18 @@ export default function HistoryTab({
     setEditFields(null);
   };
 
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'vto':
+        return 'var(--role-vto-color, #818cf8)';
+      case 'loader':
+        return 'var(--role-loader-color, #fb923c)';
+      case 'sales':
+      default:
+        return 'var(--role-sales-color, #22c55e)';
+    }
+  };
+
   return (
     <div>
       {/* ПЕРЕМИКАЧ ВИДУ */}
@@ -123,12 +135,21 @@ export default function HistoryTab({
 
                 const displayHours = totalHours > 0 ? (totalHours % 1 === 0 ? totalHours : totalHours.toFixed(1)) : 0;
 
+                const primaryRole = daySessions[0]?.role || 'sales';
+                const dayColor = hasExchange 
+                  ? 'var(--exchange-color, #ffb400)' 
+                  : getRoleColor(primaryRole);
+
                 return (
                   <button 
                     key={date.getTime()} 
                     onClick={() => setSelectedDateStr(date.toDateString())} 
                     className={`calendar-day-btn ${isSelected ? 'selected' : ''} ${dataTypeClass}`}
-                    style={{ position: 'relative', paddingBottom: '14px' }}
+                    style={{ 
+                      position: 'relative', 
+                      paddingBottom: '14px',
+                      borderColor: hasData ? dayColor : undefined
+                    }}
                   >
                     <span style={{ display: 'block', marginTop: '2px', fontSize: '13px' }}>{date.getDate()}</span>
                     
@@ -142,7 +163,7 @@ export default function HistoryTab({
                           transform: 'translateX(-50%)',
                           fontSize: '11px',
                           fontWeight: '700',
-                          color: hasExchange && hasRegular ? '#fff' : (hasExchange ? '#ffb400' : '#46a758'),
+                          color: dayColor,
                           lineHeight: 1,
                           whiteSpace: 'nowrap'
                         }}
@@ -171,7 +192,7 @@ export default function HistoryTab({
         </div>
       )}
 
-      {/* МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ */}
+      {/* МОДАЛЬНЕ ВІКНО РЕДАГУВАННЯ (ОРИГІНАЛЬНИЙ МАКЕТ) */}
       {editingSession && editFields && (
         <div style={{
           position: 'fixed',
@@ -201,7 +222,7 @@ export default function HistoryTab({
               </button>
             </div>
 
-            {/* Окрема кнопка-перемикач для Біржі */}
+            {/* Перемикач для Біржі */}
             <div style={{ marginBottom: '14px' }}>
               <button 
                 type="button"
@@ -216,17 +237,17 @@ export default function HistoryTab({
                   border: '1px solid',
                   cursor: 'pointer',
                   background: editFields.type === 'exchange' ? 'rgba(255, 180, 0, 0.15)' : '#222',
-                  borderColor: editFields.type === 'exchange' ? '#ffb400' : '#333',
-                  color: editFields.type === 'exchange' ? '#ffb400' : '#888',
+                  borderColor: editFields.type === 'exchange' ? 'var(--exchange-color, #ffb400)' : '#333',
+                  color: editFields.type === 'exchange' ? 'var(--exchange-color, #ffb400)' : '#888',
                   fontWeight: 'bold',
-                  display: 'flex',
+                  display: 'block',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  justify: 'center',
                   gap: '8px',
                   transition: 'all 0.2s ease'
                 }}
               >
-                ⚡ {editFields.type === 'exchange' ? 'Зміна Біржі (Активно)' : 'Позначити як Біржу'}
+                ⚡ {editFields.type === 'exchange' ? 'Зміна Біржі' : 'Позначити як Біржу'}
               </button>
             </div>
 
@@ -244,8 +265,8 @@ export default function HistoryTab({
                     border: '1px solid',
                     cursor: 'pointer',
                     background: editFields.role === 'sales' ? 'rgba(34, 197, 94, 0.2)' : '#222',
-                    borderColor: editFields.role === 'sales' ? '#22c55e' : '#333',
-                    color: editFields.role === 'sales' ? '#22c55e' : '#888',
+                    borderColor: editFields.role === 'sales' ? 'var(--role-sales-color, #22c55e)' : '#333',
+                    color: editFields.role === 'sales' ? 'var(--role-sales-color, #22c55e)' : '#888',
                     fontWeight: 'bold'
                   }}
                 >🛍️ Капітан</button>
@@ -259,8 +280,8 @@ export default function HistoryTab({
                     border: '1px solid',
                     cursor: 'pointer',
                     background: editFields.role === 'vto' ? 'rgba(129, 140, 248, 0.2)' : '#222',
-                    borderColor: editFields.role === 'vto' ? '#818cf8' : '#333',
-                    color: editFields.role === 'vto' ? '#818cf8' : '#888',
+                    borderColor: editFields.role === 'vto' ? 'var(--role-vto-color, #818cf8)' : '#333',
+                    color: editFields.role === 'vto' ? 'var(--role-vto-color, #818cf8)' : '#888',
                     fontWeight: 'bold'
                   }}
                 >🛠️ Магістр</button>
@@ -274,8 +295,8 @@ export default function HistoryTab({
                     border: '1px solid',
                     cursor: 'pointer',
                     background: editFields.role === 'loader' ? 'rgba(251, 146, 60, 0.2)' : '#222',
-                    borderColor: editFields.role === 'loader' ? '#fb923c' : '#333',
-                    color: editFields.role === 'loader' ? '#fb923c' : '#888',
+                    borderColor: editFields.role === 'loader' ? 'var(--role-loader-color, #fb923c)' : '#333',
+                    color: editFields.role === 'loader' ? 'var(--role-loader-color, #fb923c)' : '#888',
                     fontWeight: 'bold'
                   }}
                 >💪 Логіст</button>
@@ -338,7 +359,7 @@ export default function HistoryTab({
               <button 
                 type="button"
                 onClick={handleSaveEdit}
-                style={{ flex: 1, padding: '12px', background: '#646cff', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                style={{ flex: 1, padding: '12px', background: 'var(--primary-color, #646cff)', border: 'none', color: '#fff', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
               ><Check size={16} /> Зберегти</button>
             </div>
           </div>
@@ -348,16 +369,15 @@ export default function HistoryTab({
   );
 }
 
-// Компонент окремої картки збереженої зміни
 function SessionCard({ s, onEdit, onDelete, formatTime, formatDate, formatDuration }) {
   const getRoleBadge = (role) => {
     switch (role) {
       case 'vto':
-        return { name: '🛠️ Магістр обліку', color: '#818cf8', bg: 'rgba(129, 140, 248, 0.15)' };
+        return { name: '🛠️ Магістр обліку', color: 'var(--role-vto-color, #818cf8)', bg: 'rgba(129, 140, 248, 0.15)' };
       case 'loader':
-        return { name: '💪 Логіст', color: '#fb923c', bg: 'rgba(251, 146, 60, 0.15)' };
+        return { name: '💪 Логіст', color: 'var(--role-loader-color, #fb923c)', bg: 'rgba(251, 146, 60, 0.15)' };
       case 'sales': default:
-        return { name: '🛍️ Капітан Залу', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)' };
+        return { name: '🛍️ Капітан Залу', color: 'var(--role-sales-color, #22c55e)', bg: 'rgba(34, 197, 94, 0.15)' };
     }
   };
 
@@ -369,17 +389,16 @@ function SessionCard({ s, onEdit, onDelete, formatTime, formatDate, formatDurati
       background: '#222', 
       padding: '16px', 
       borderRadius: '10px', 
-      border: isExchange ? '1px solid #eab308' : '1px solid #333', 
-      boxShadow: isExchange ? '0 0 10px rgba(234, 179, 8, 0.15)' : 'none',
+      border: isExchange ? '1px solid var(--exchange-color, #ffb400)' : '1px solid #333', 
+      boxShadow: isExchange ? '0 0 10px rgba(255, 180, 0, 0.15)' : 'none',
       display: 'flex', 
-      justifyContent: 'space-between', 
+      justify: 'space-between', 
       alignItems: 'center' 
     }}>
       <div style={{ flex: 1, marginRight: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 'bold' }}>{formatDate(s.startTime)}</span>
           
-          {/* Бейдж ролі */}
           <span style={{ 
             fontSize: '11px', 
             padding: '2px 8px', 
@@ -391,16 +410,15 @@ function SessionCard({ s, onEdit, onDelete, formatTime, formatDate, formatDurati
             {roleInfo.name}
           </span>
 
-          {/* Плашка Біржі */}
           {isExchange && (
             <span style={{ 
               fontSize: '11px', 
               padding: '2px 8px', 
-              background: '#eab308', 
+              background: 'var(--exchange-color, #ffb400)', 
               borderRadius: '4px', 
               color: '#000',
               fontWeight: 'bold',
-              boxShadow: '0 0 6px rgba(234, 179, 8, 0.4)'
+              boxShadow: '0 0 6px rgba(255, 180, 0, 0.4)'
             }}>
               ⚡ Біржа
             </span>
@@ -412,7 +430,7 @@ function SessionCard({ s, onEdit, onDelete, formatTime, formatDate, formatDurati
           <span>☕ Обід: {s.lunch} хв</span>
         </div>
 
-        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#46a758' }}>
+        <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff' }}>
           Тривалість зміни: {formatDuration(s.duration)}
         </div>
 
