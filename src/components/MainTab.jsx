@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Play, Square, ShoppingBag, Wrench, Armchair, Settings } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 
@@ -98,21 +98,20 @@ export default function MainTab({
           </div>
 
           {!isExchange ? (
-            /* ЗВИЧАЙНИЙ РЕЖИМ (лише основна посада) */
+            /* ЗВИЧАЙНИЙ РЕЖИМ */
             <div style={{ textAlign: 'center', marginBottom: '20px' }}>
               <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>Основна посада (план 176 год):</div>
-              <div style={{
-                background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '12px',
-                padding: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#60a5fa', fontWeight: 'bold', fontSize: '16px'
-              }}>
-                {mainRoleObj.icon}
-                <span>{mainRoleObj.title} ({settings.rates[mainRoleObj.id]} ₴/год)</span>
+              <div className={`role-card ${mainRoleObj.id} ${mainRoleObj.activeClass}`} style={{ cursor: 'default', padding: '14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', fontWeight: 'bold', fontSize: '16px' }}>
+                  {mainRoleObj.icon}
+                  <span>{mainRoleObj.title} ({settings.rates[mainRoleObj.id]} ₴/год)</span>
+                </div>
               </div>
             </div>
           ) : (
-            /* РЕЖИМ БІРЖІ (перелік усіх посад) */
+            /* РЕЖИМ БІРЖІ */
             <div className="roles-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-              <div style={{ fontSize: '12px', color: '#eab308', fontWeight: 'bold', textAlign: 'center' }}>
+              <div style={{ fontSize: '12px', color: 'var(--exchange-color)', fontWeight: 'bold', textAlign: 'center' }}>
                 Оберіть посаду для зміни за Біржею:
               </div>
               {roles.map((role) => {
@@ -150,7 +149,16 @@ export default function MainTab({
         /* 2. ЕКРАН АКТИВНОЇ ЗМІНИ */
         <>
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <div style={{ color: '#46a758', fontWeight: 'bold', fontSize: '14px', background: 'rgba(70,167,88,0.1)', padding: '4px 12px', borderRadius: '20px', marginBottom: '12px', display: 'inline-block' }}>
+            <div style={{ 
+              color: 'var(--start-green)', 
+              fontWeight: 'bold', 
+              fontSize: '14px', 
+              background: 'rgba(70,167,88,0.1)', 
+              padding: '4px 12px', 
+              borderRadius: '20px', 
+              marginBottom: '12px', 
+              display: 'inline-block' 
+            }}>
               🟢 ЗМІНА В ПРОЦЕСІ
             </div>
             <div style={{ fontSize: '38px', fontFamily: 'monospace', fontWeight: 'bold', margin: '10px 0' }}>{elapsedTime}</div>
@@ -161,8 +169,13 @@ export default function MainTab({
               </span>
               {activeSession.type === 'exchange' && (
                 <span style={{ 
-                  background: '#eab308', color: '#000', fontSize: '12px', fontWeight: 'bold', 
-                  padding: '2px 8px', borderRadius: '6px', boxShadow: '0 0 8px rgba(234,179,8,0.4)' 
+                  background: 'var(--exchange-color)', 
+                  color: '#000', 
+                  fontSize: '12px', 
+                  fontWeight: 'bold', 
+                  padding: '2px 8px', 
+                  borderRadius: '6px', 
+                  boxShadow: '0 0 8px rgba(234,179,8,0.4)' 
                 }}>
                   ⚡ Біржа
                 </span>
