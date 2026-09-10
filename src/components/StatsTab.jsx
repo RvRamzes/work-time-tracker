@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export default function StatsTab({ sessions = [] }) {
   // 1. Вкладиші: 'monthly' (Місячний звіт) або 'analytics' (Аналітика)
@@ -13,6 +13,9 @@ export default function StatsTab({ sessions = [] }) {
 
   // Стейт акордеона Біржі
   const [isBirzhaOpen, setIsBirzhaOpen] = useState(false);
+
+  // Реф для закриття календаря при кліку зовні
+  const pickerRef = useRef(null);
 
   // Ключі для збереження авансу та зарплати під кожен місяць окремо
   const monthKey = `${currentDate.getFullYear()}_${currentDate.getMonth()}`;
@@ -30,6 +33,21 @@ export default function StatsTab({ sessions = [] }) {
     setZarplata(savedZarplata !== null ? savedZarplata : '');
   }, [monthKey]);
 
+  // Закриття календаря при кліку поза ним
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target)) {
+        setShowMonthPicker(false);
+      }
+    };
+    if (showMonthPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMonthPicker]);
+
   const ROLE_MAP = {
     vto: { title: '🛠️ Магістр обліку (Основна)', rate: 165 },
     sales: { title: '🛍️ Капітан Залу', rate: 220 },
@@ -41,7 +59,7 @@ export default function StatsTab({ sessions = [] }) {
     'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
   ];
 
-  // Форматування чисел з пробілом тисяч та комою для дробової частини (напр. 1 100,15)
+  // Форматування чисел з пробілом тисяч та комою для дробової частини
   const formatNumber = (num, decimals = 2) => {
     const n = parseFloat(num);
     if (isNaN(n)) return '0,00';
@@ -52,11 +70,11 @@ export default function StatsTab({ sessions = [] }) {
   };
 
   const handlePrevMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
 
   const handleNextMonth = () => {
-    setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
   const handleSelectMonth = (monthIndex) => {
@@ -82,7 +100,9 @@ export default function StatsTab({ sessions = [] }) {
     const month = currentDate.getMonth();
 
     return sessions.filter(s => {
-      const sessionDate = new Date(s.endTime || s.startTime);
+      const rawDate = s.endTime || s.startTime;
+      if (!rawDate) return false;
+      const sessionDate = new Date(rawDate);
       if (isNaN(sessionDate.getTime())) return false;
       return sessionDate.getFullYear() === year && sessionDate.getMonth() === month;
     });
@@ -95,7 +115,7 @@ export default function StatsTab({ sessions = [] }) {
     const exchangeRoles = {};
 
     filteredSessions.forEach(s => {
-      const duration = s.duration || 0;
+      const duration = Number(s.duration) || 0;
       totalMinutes += duration;
 
       const hours = duration / 60;
@@ -138,7 +158,9 @@ export default function StatsTab({ sessions = [] }) {
     });
 
     const grandTotal = mainTotal + exchangeTotal;
-    const totalReceived = (parseFloat(avans) || 0) + (parseFloat(zarplata) || 0);
+    const parsedAvans = parseFloat(String(avans).replace(',', '.')) || 0;
+    const parsedZarplata = parseFloat(String(zarplata).replace(',', '.')) || 0;
+    const totalReceived = parsedAvans + parsedZarplata;
     const balance = grandTotal - totalReceived;
 
     return {
@@ -162,9 +184,23 @@ export default function StatsTab({ sessions = [] }) {
   // Статистика за N днів для вкладки "Аналітика"
   const getStats = (days) => {
     const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-    const filtered = sessions.filter(s => new Date(s.endTime || s.startTime).getTime() > cutoff);
+    const filtered = sessions.filter(s => {
+      const rawDate = s.endTime || s.startTime;
+      if (!rawDate) return false;
+      const t = new Date(rawDate).getTime();
+      return !isNaN(t) && t > cutoff;
+    });
+
     let reg = 0, exc = 0;
-    filtered.forEach(s => (s.type === 'regular' || !s.type ? (reg += s.duration || 0) : (exc += s.duration || 0)));
+    filtered.forEach(s => {
+      const dur = Number(s.duration) || 0;
+      if (s.type === 'regular' || !s.type) {
+        reg += dur;
+      } else {
+        exc += dur;
+      }
+    });
+
     return {
       regular: (reg / 60).toFixed(1),
       exchange: (exc / 60).toFixed(1),
@@ -174,8 +210,8 @@ export default function StatsTab({ sessions = [] }) {
   };
 
   const analyticsBlocks = [
-    { label: '📆 Звіт за останні 7 днів', data: getStats(7), color: '#646cff' },
-    { label: '📅 Звіт за останні 30 днів', data: getStats(30), color: '#ffb400' }
+    { label: '📆 Звіт за останні 7 днів', data: getStats(7), color: 'var(--primary-color, #3b82f6)' },
+    { label: '📅 Звіт за останні 30 днів', data: getStats(30), color: 'var(--exchange-color, #ffb400)' }
   ];
 
   return (
@@ -184,10 +220,10 @@ export default function StatsTab({ sessions = [] }) {
       {/* 🔘 КНОПКИ ПЕРЕМИКАННЯ: МІСЯЧНИЙ ЗВІТ / АНАЛІТИКА */}
       <div style={{
         display: 'flex',
-        background: '#1e1e1e',
+        background: 'var(--bg-card, #1e1e1e)',
         borderRadius: '12px',
         padding: '3px',
-        border: '1px solid #2d2d2d'
+        border: '1px solid var(--border-color, #2d2d2d)'
       }}>
         <button
           type="button"
@@ -199,9 +235,10 @@ export default function StatsTab({ sessions = [] }) {
             fontWeight: 'bold',
             borderRadius: '9px',
             border: 'none',
-            background: viewMode === 'monthly' ? '#3b82f6' : 'transparent',
-            color: viewMode === 'monthly' ? '#fff' : '#888',
-            cursor: 'pointer'
+            background: viewMode === 'monthly' ? 'var(--primary-color, #3b82f6)' : 'transparent',
+            color: viewMode === 'monthly' ? '#fff' : 'var(--text-muted, #888)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
           }}
         >
           📊 Місячний звіт
@@ -216,9 +253,10 @@ export default function StatsTab({ sessions = [] }) {
             fontWeight: 'bold',
             borderRadius: '9px',
             border: 'none',
-            background: viewMode === 'analytics' ? '#3b82f6' : 'transparent',
-            color: viewMode === 'analytics' ? '#fff' : '#888',
-            cursor: 'pointer'
+            background: viewMode === 'analytics' ? 'var(--primary-color, #3b82f6)' : 'transparent',
+            color: viewMode === 'analytics' ? '#fff' : 'var(--text-muted, #888)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
           }}
         >
           📈 Аналітика (7/30 дн)
@@ -229,11 +267,11 @@ export default function StatsTab({ sessions = [] }) {
       {viewMode === 'monthly' && (
         <>
           {/* ФІЛЬТР МІСЯЦЯ ТА КНОПКА ВИБОРУ МІСЯЦЯ */}
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
             <div style={{
               flex: 1,
-              background: '#1e1e1e',
-              border: '1px solid #2d2d2d',
+              background: 'var(--bg-card, #1e1e1e)',
+              border: '1px solid var(--border-color, #2d2d2d)',
               borderRadius: '10px',
               padding: '6px 12px',
               display: 'flex',
@@ -242,16 +280,16 @@ export default function StatsTab({ sessions = [] }) {
             }}>
               <span 
                 onClick={handlePrevMonth}
-                style={{ color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', padding: '0 8px', fontSize: '16px' }}
+                style={{ color: 'var(--primary-color, #60a5fa)', fontWeight: 'bold', cursor: 'pointer', padding: '0 8px', fontSize: '16px' }}
               >
                 ◂
               </span>
-              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff' }}>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-main, #fff)' }}>
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
               </span>
               <span 
                 onClick={handleNextMonth}
-                style={{ color: '#60a5fa', fontWeight: 'bold', cursor: 'pointer', padding: '0 8px', fontSize: '16px' }}
+                style={{ color: 'var(--primary-color, #60a5fa)', fontWeight: 'bold', cursor: 'pointer', padding: '0 8px', fontSize: '16px' }}
               >
                 ▸
               </span>
@@ -264,13 +302,13 @@ export default function StatsTab({ sessions = [] }) {
                 setShowMonthPicker(!showMonthPicker);
               }}
               style={{
-                background: showMonthPicker ? '#3b82f6' : '#1e1e1e',
-                border: showMonthPicker ? '1px solid #60a5fa' : '1px solid #2d2d2d',
+                background: showMonthPicker ? 'var(--primary-color, #3b82f6)' : 'var(--bg-card, #1e1e1e)',
+                border: showMonthPicker ? '1px solid var(--primary-color, #60a5fa)' : '1px solid var(--border-color, #2d2d2d)',
                 borderRadius: '10px',
                 padding: '8px 14px',
                 fontSize: '12px',
                 fontWeight: '600',
-                color: showMonthPicker ? '#fff' : '#888',
+                color: showMonthPicker ? '#fff' : 'var(--text-muted, #888)',
                 cursor: 'pointer'
               }}
             >
@@ -280,27 +318,35 @@ export default function StatsTab({ sessions = [] }) {
 
           {/* ВИПАДАЮЧИЙ КАЛЕНДАР (PICKER) */}
           {showMonthPicker && (
-            <div style={{
-              background: '#18181b',
-              border: '1px solid #3f3f46',
-              borderRadius: '12px',
-              padding: '12px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '10px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #27272a', paddingBottom: '8px' }}>
+            <div 
+              ref={pickerRef}
+              style={{
+                background: 'var(--bg-card, #18181b)',
+                border: '1px solid var(--border-color, #3f3f46)',
+                borderRadius: '12px',
+                padding: '12px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                position: 'absolute',
+                top: '90px',
+                right: '0',
+                left: '0',
+                zIndex: 10
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color, #27272a)', paddingBottom: '8px' }}>
                 <span 
                   onClick={() => setPickerYear(prev => prev - 1)}
-                  style={{ cursor: 'pointer', color: '#60a5fa', fontWeight: 'bold', padding: '0 6px' }}
+                  style={{ cursor: 'pointer', color: 'var(--primary-color, #60a5fa)', fontWeight: 'bold', padding: '0 6px' }}
                 >
                   ◂
                 </span>
-                <span style={{ fontWeight: 'bold', color: '#fff', fontSize: '14px' }}>{pickerYear} рік</span>
+                <span style={{ fontWeight: 'bold', color: 'var(--text-main, #fff)', fontSize: '14px' }}>{pickerYear} рік</span>
                 <span 
                   onClick={() => setPickerYear(prev => prev + 1)}
-                  style={{ cursor: 'pointer', color: '#60a5fa', fontWeight: 'bold', padding: '0 6px' }}
+                  style={{ cursor: 'pointer', color: 'var(--primary-color, #60a5fa)', fontWeight: 'bold', padding: '0 6px' }}
                 >
                   ▸
                 </span>
@@ -312,10 +358,11 @@ export default function StatsTab({ sessions = [] }) {
                   return (
                     <button
                       key={m}
+                      type="button"
                       onClick={() => handleSelectMonth(idx)}
                       style={{
-                        background: isSelected ? '#3b82f6' : '#27272a',
-                        color: isSelected ? '#fff' : '#d4d4d8',
+                        background: isSelected ? 'var(--primary-color, #3b82f6)' : 'var(--bg-input, #27272a)',
+                        color: isSelected ? '#fff' : 'var(--text-main, #d4d4d8)',
                         border: 'none',
                         borderRadius: '8px',
                         padding: '8px 4px',
@@ -335,7 +382,7 @@ export default function StatsTab({ sessions = [] }) {
           {/* 1. РОБОЧІ ГОДИНИ */}
           <div className="card">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)', fontWeight: 700, textTransform: 'uppercase' }}>
                 ⏱️ Робочі години
               </span>
               <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 700 }}>
@@ -343,15 +390,15 @@ export default function StatsTab({ sessions = [] }) {
               </span>
             </div>
 
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#ffffff', marginBottom: '8px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-main, #ffffff)', marginBottom: '8px' }}>
               {data.formattedTotalTime}
             </div>
 
-            <div style={{ background: '#2a2a2a', height: '5px', borderRadius: '3px', overflow: 'hidden', margin: '4px 0' }}>
-              <div style={{ background: '#3b82f6', height: '100%', width: `${data.progressPercent}%` }}></div>
+            <div style={{ background: 'var(--bg-input, #2a2a2a)', height: '5px', borderRadius: '3px', overflow: 'hidden', margin: '4px 0' }}>
+              <div style={{ background: 'var(--primary-color, #3b82f6)', height: '100%', width: `${data.progressPercent}%` }}></div>
             </div>
 
-            <div style={{ fontSize: '9px', color: '#71717a', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+            <div style={{ fontSize: '9px', color: 'var(--text-muted, #71717a)', display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
               <span>План: {data.planHours} год</span>
               <span>Залишилось: {data.remainTimeText}</span>
             </div>
@@ -359,7 +406,7 @@ export default function StatsTab({ sessions = [] }) {
 
           {/* 2. НАРАХОВАНИЙ ЗАРОБІТОК */}
           <div className="card" style={{ borderColor: 'rgba(34, 197, 94, 0.3)' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
               💰 Нарахований Заробіток
             </div>
             <div style={{ fontSize: '22px', fontWeight: 800, color: '#22c55e', marginBottom: '10px' }}>
@@ -368,8 +415,8 @@ export default function StatsTab({ sessions = [] }) {
 
             {/* Основна зміна */}
             <div style={{
-              background: '#161616',
-              border: '1px solid #262626',
+              background: 'var(--bg-input, #161616)',
+              border: '1px solid var(--border-color, #262626)',
               borderRadius: '9px',
               padding: '8px 10px',
               display: 'flex',
@@ -379,10 +426,10 @@ export default function StatsTab({ sessions = [] }) {
               boxSizing: 'border-box'
             }}>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#e2e8f0' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-main, #e2e8f0)' }}>
                   {ROLE_MAP.vto.title}
                 </div>
-                <div style={{ fontSize: '9px', color: '#71717a', marginTop: '2px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted, #71717a)', marginTop: '2px' }}>
                   {data.mainHours} год × {ROLE_MAP.vto.rate} ₴/год
                 </div>
               </div>
@@ -396,7 +443,7 @@ export default function StatsTab({ sessions = [] }) {
               onClick={() => setIsBirzhaOpen(!isBirzhaOpen)}
               style={{
                 background: 'transparent',
-                border: '1px solid #eab308',
+                border: '1px solid var(--exchange-color, #eab308)',
                 borderRadius: '10px',
                 padding: '8px 10px',
                 marginTop: '8px',
@@ -407,14 +454,14 @@ export default function StatsTab({ sessions = [] }) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 800, color: '#eab308' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--exchange-color, #eab308)' }}>
                     ⚡ Зміни Біржі
                   </span>
-                  <span style={{ fontSize: '10px', color: '#eab308' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--exchange-color, #eab308)' }}>
                     {isBirzhaOpen ? '▲' : '▼'}
                   </span>
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#eab308', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--exchange-color, #eab308)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
                   {data.exchangeTotalFormatted} ₴
                 </div>
               </div>
@@ -425,20 +472,20 @@ export default function StatsTab({ sessions = [] }) {
                     data.exchangeDetails.map((item) => (
                       <div key={item.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ textAlign: 'left' }}>
-                          <div style={{ fontSize: '11px', fontWeight: 700, color: '#fde68a' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--exchange-color, #fde68a)' }}>
                             {item.title}
                           </div>
-                          <div style={{ fontSize: '9px', color: '#a1a1aa', marginTop: '1px' }}>
+                          <div style={{ fontSize: '9px', color: 'var(--text-muted, #a1a1aa)', marginTop: '1px' }}>
                             {item.hours} год × {item.rate} ₴/год
                           </div>
                         </div>
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: '#eab308', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--exchange-color, #eab308)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
                           {item.sumFormatted} ₴
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div style={{ fontSize: '10px', color: '#888', textAlign: 'center', padding: '4px 0' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted, #888)', textAlign: 'center', padding: '4px 0' }}>
                       За вибраний місяць змін біржі немає
                     </div>
                   )}
@@ -449,26 +496,26 @@ export default function StatsTab({ sessions = [] }) {
 
           {/* 3. ФАКТИЧНІ ВИПЛАТИ ТА БАЛАНС */}
           <div className="card" style={{ borderColor: 'rgba(96, 165, 250, 0.3)' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted, #94a3b8)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>
               💳 Фактичні виплати та баланс
             </div>
 
             {/* Аванс */}
             <div style={{
-              background: '#161616',
-              border: '1px solid #262626',
+              background: 'var(--bg-input, #161616)',
+              border: '1px solid var(--border-color, #262626)',
               borderRadius: '9px',
               padding: '7px 10px',
               marginBottom: '6px',
               display: 'flex',
-              justifyContent: 'space-between',
+              justify: 'space-between',
               alignItems: 'center',
               width: '100%',
               boxSizing: 'border-box'
             }}>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#e2e8f0' }}>🗓️ Аванс (06 числа)</div>
-                <div style={{ fontSize: '9px', color: '#71717a' }}>Отримано на карту</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-main, #e2e8f0)' }}>🗓️ Аванс (06 числа)</div>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted, #71717a)' }}>Отримано на карту</div>
               </div>
               <input 
                 type="number" 
@@ -476,13 +523,13 @@ export default function StatsTab({ sessions = [] }) {
                 placeholder="0 (введіть суму)"
                 onChange={handleAvansChange}
                 style={{
-                  background: '#121212',
-                  border: '1px solid #333',
+                  background: 'var(--bg-card, #121212)',
+                  border: '1px solid var(--border-color, #333)',
                   borderRadius: '6px',
                   padding: '4px 8px',
                   fontSize: '11px',
                   fontWeight: '700',
-                  color: '#38bdf8',
+                  color: 'var(--primary-color, #38bdf8)',
                   textAlign: 'right',
                   width: '105px',
                   outline: 'none',
@@ -493,20 +540,20 @@ export default function StatsTab({ sessions = [] }) {
 
             {/* Зарплата */}
             <div style={{
-              background: '#161616',
-              border: '1px solid #262626',
+              background: 'var(--bg-input, #161616)',
+              border: '1px solid var(--border-color, #262626)',
               borderRadius: '9px',
               padding: '7px 10px',
               marginBottom: '8px',
               display: 'flex',
-              justifyContent: 'space-between',
+              justify: 'space-between',
               alignItems: 'center',
               width: '100%',
               boxSizing: 'border-box'
             }}>
               <div style={{ textAlign: 'left' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#e2e8f0' }}>🗓️ Зарплата (21 числа)</div>
-                <div style={{ fontSize: '9px', color: '#71717a' }}>Отримано на карту</div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-main, #e2e8f0)' }}>🗓️ Зарплата (21 числа)</div>
+                <div style={{ fontSize: '9px', color: 'var(--text-muted, #71717a)' }}>Отримано на карту</div>
               </div>
               <input 
                 type="number" 
@@ -514,13 +561,13 @@ export default function StatsTab({ sessions = [] }) {
                 placeholder="0 (введіть суму)"
                 onChange={handleZarplataChange}
                 style={{
-                  background: '#121212',
-                  border: '1px solid #333',
+                  background: 'var(--bg-card, #121212)',
+                  border: '1px solid var(--border-color, #333)',
                   borderRadius: '6px',
                   padding: '4px 8px',
                   fontSize: '11px',
                   fontWeight: '700',
-                  color: '#38bdf8',
+                  color: 'var(--primary-color, #38bdf8)',
                   textAlign: 'right',
                   width: '105px',
                   outline: 'none',
@@ -542,14 +589,14 @@ export default function StatsTab({ sessions = [] }) {
                     borderRadius: '9px',
                     padding: '8px 10px',
                     display: 'flex',
-                    justifyContent: 'space-between',
+                    justify: 'space-between',
                     alignItems: 'center',
                     width: '100%',
                     boxSizing: 'border-box'
                   }}>
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: '10px', color: '#888' }}>
-                        Всього отримано: <b style={{ color: '#fff' }}>{data.totalReceivedFormatted} ₴</b>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted, #888)' }}>
+                        Всього отримано: <b style={{ color: 'var(--text-main, #fff)' }}>{data.totalReceivedFormatted} ₴</b>
                       </div>
                       <div style={{ fontSize: '11px', fontWeight: 800, color: '#22c55e', marginTop: '2px' }}>
                         ✅ Розраховано повністю
@@ -571,14 +618,14 @@ export default function StatsTab({ sessions = [] }) {
                     borderRadius: '9px',
                     padding: '8px 10px',
                     display: 'flex',
-                    justifyContent: 'space-between',
+                    justify: 'space-between',
                     alignItems: 'center',
                     width: '100%',
                     boxSizing: 'border-box'
                   }}>
                     <div style={{ textAlign: 'left' }}>
-                      <div style={{ fontSize: '10px', color: '#888' }}>
-                        Всього отримано: <b style={{ color: '#fff' }}>{data.totalReceivedFormatted} ₴</b>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted, #888)' }}>
+                        Всього отримано: <b style={{ color: 'var(--text-main, #fff)' }}>{data.totalReceivedFormatted} ₴</b>
                       </div>
                       <div style={{ fontSize: '11px', fontWeight: 800, color: '#f97316', marginTop: '2px' }}>
                         ⏳ Залишок до виплати:
@@ -599,20 +646,20 @@ export default function StatsTab({ sessions = [] }) {
                   borderRadius: '9px',
                   padding: '8px 10px',
                   display: 'flex',
-                  justifyContent: 'space-between',
+                  justify: 'space-between',
                   alignItems: 'center',
                   width: '100%',
                   boxSizing: 'border-box'
                 }}>
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '10px', color: '#888' }}>
-                      Всього отримано: <b style={{ color: '#fff' }}>{data.totalReceivedFormatted} ₴</b>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted, #888)' }}>
+                      Всього отримано: <b style={{ color: 'var(--text-main, #fff)' }}>{data.totalReceivedFormatted} ₴</b>
                     </div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#60a5fa', marginTop: '2px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary-color, #60a5fa)', marginTop: '2px' }}>
                       ⚠️ Переплата:
                     </div>
                   </div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#60a5fa', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--primary-color, #60a5fa)', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
                     + {data.balanceFormatted} ₴
                   </div>
                 </div>
@@ -629,18 +676,18 @@ export default function StatsTab({ sessions = [] }) {
             <div key={idx} className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <h4 style={{ color: block.color, fontWeight: 'bold', fontSize: '14px', margin: 0 }}>{block.label}</h4>
-                <span style={{ fontSize: '12px', color: '#888' }}>Змін: {block.data.count}</span>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted, #888)' }}>Змін: {block.data.count}</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#aaa' }}>🏢 Основна посада:</span>
+                  <span style={{ color: 'var(--text-muted, #aaa)' }}>🏢 Основна посада:</span>
                   <strong>{block.data.regular} год</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#aaa' }}>⚡ Зміни Біржі:</span>
+                  <span style={{ color: 'var(--text-muted, #aaa)' }}>⚡ Зміни Біржі:</span>
                   <strong>{block.data.exchange} год</strong>
                 </div>
-                <hr style={{ border: '0', borderTop: '1px solid #333', margin: '6px 0' }} />
+                <hr style={{ border: '0', borderTop: '1px solid var(--border-color, #333)', margin: '6px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 'bold', color: '#22c55e' }}>
                   <span>📈 Загалом відпрацьовано:</span>
                   <span>{block.data.total} год</span>
