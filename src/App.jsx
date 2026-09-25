@@ -6,6 +6,56 @@ import MainTab from './components/MainTab';
 import HistoryTab from './components/HistoryTab';
 import StatsTab from './components/StatsTab';
 
+ // // // // // // // // // // // // // //
+import React, { useEffect, useState } from 'react';
+import { getLocalShifts, addShift, syncPendingShifts } from './services/googleSheets';
+import { Cloud, CloudOff, Check } from 'lucide-react'; // Іконки для статусу
+
+function App() {
+  const [shifts, setShifts] = useState([]);
+
+  useEffect(() => {
+    // Завантажуємо локальні дані
+    setShifts(getLocalShifts());
+
+    // Пробуємо відправити невідправлені записи при старті
+    syncPendingShifts();
+
+    // Авто-синхронізація при появі інтернету
+    const handleOnline = () => {
+      syncPendingShifts().then(() => setShifts(getLocalShifts()));
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
+  // Хендлер збереження зміни з форми
+  const handleSaveShift = async (formData) => {
+    const updated = await addShift(formData);
+    setShifts(updated);
+  };
+
+  return (
+    <div>
+      {/* Ваш UI форми та списку shifts */}
+      {shifts.map(shift => (
+        <div key={shift.id} className="shift-card">
+          <span>{shift.date}: {shift.startTime} - {shift.endTime}</span>
+          
+          {/* Візуальний статус синхронізації */}
+          {shift.synced ? (
+            <span title="Збережено в Google Таблицю"><Check size={16} color="green" /></span>
+          ) : (
+            <span title="Збережено тільки локально (очікує мережу)"><CloudOff size={16} color="orange" /></span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+ // // // // // // // // // //
 export default function App() {
   // --- БАЗА ДАНИХ ТА СТАН ---
   const [sessions, setSessions] = useState(() => {
