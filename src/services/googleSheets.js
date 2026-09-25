@@ -1,57 +1,14 @@
-// Вставте сюди URL, який скопіювали з Apps Script
+// Вставте сюди скопійований URL з Google Apps Script
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzkq18IwE9IkCn9laXcvydXr4odXpibTG1iMAb7EHzNC7fgpEbDMV8Qw3x7oNEFRc3O/exec';
-const STORAGE_KEY = 'work_time_shifts'; // Назва вашого ключа в localStorage
+const STORAGE_KEY = 'work_time_shifts';
 
-// Отримати всі зміни з localStorage
+// 1. Отримати локальні дані
 export const getLocalShifts = () => {
   const data = localStorage.getItem(STORAGE_KEY);
   return data ? JSON.parse(data) : [];
 };
 
-// Зберегти нову зміну (спочатку локально, потім спроба в Google)
-export const addShift = async (shiftData) => {
-  const shifts = getLocalShifts();
-  
-  const newShift = {
-    id: Date.now(),
-    date: shiftData.date || new Date().toISOString().split('T')[0],
-    startTime: shiftData.startTime,
-    endTime: shiftData.endTime,
-    duration: shiftData.duration,
-    note: shiftData.note || '',
-    synced: false // Прапорець синхронізації
-  };
-
-  // 1. Одразу зберігаємо в localStorage (Офлайн-First)
-  const updatedShifts = [newShift, ...shifts];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedShifts));
-
-  // 2. Якщо є інтернет — пробуємо відправити у таблицю
-  if (navigator.onLine) {
-    await sendShiftToGoogle(newShift);
-  }
-
-  return updatedShifts;
-};
-
-// Відправка одного запису в Google Таблицю
-const sendShiftToGoogle = async (shift) => {
-  try {
-    await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'no-cors', // Важливо для Google Apps Script
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(shift)
-    });
-
-    // Позначаємо як синхронізоване
-    markAsSynced(shift.id);
-  } catch (error) {
-    console.error('Не вдалося відправити в Google Таблицю:', error);
-  }
-};
-
-// Позначити зміну як synced: true у localStorage
+// 2. Позначити запис як synced: true
 const markAsSynced = (id) => {
   const shifts = getLocalShifts().map(item => 
     item.id === id ? { ...item, synced: true } : item
@@ -59,7 +16,47 @@ const markAsSynced = (id) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(shifts));
 };
 
-// Синхронізація всіх невідправлених записів (для фонової роботи)
+// 3. Відправити один запис у Google Таблицю
+export const sendShiftToGoogle = async (shift) => {
+  if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'ВАШ_URL_З_APPS_SCRIPT') {
+    return;
+  }
+
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(shift)
+    });
+
+    markAsSynced(shift.id);
+  } catch (error) {
+    console.error('Помилка відправки в Google Таблицю:', error);
+  }
+};
+
+// 4. Додати нову зміну (сумісність з іншими версіями)
+export const addShift = async (shiftData) => {
+  const shifts = getLocalShifts();
+  
+  const newShift = {
+    id: Date.now(),
+    ...shiftData,
+    synced: false
+  };
+
+  const updatedShifts = [newShift, ...shifts];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedShifts));
+
+  if (navigator.onLine) {
+    await sendShiftToGoogle(newShift);
+  }
+
+  return updatedShifts;
+};
+
+// 5. Фонова синхронізація невідправлених записів
 export const syncPendingShifts = async () => {
   if (!navigator.onLine) return;
 
@@ -69,4 +66,36 @@ export const syncPendingShifts = async () => {
   for (const shift of pending) {
     await sendShiftToGoogle(shift);
   }
+};
+
+// 6. Отримати дані з Google Таблиці (GET)
+export const fetchShiftsFromGoogle = async () => {
+  if (!navigator.onLine || !GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL === 'ВАШ_URL_З_APPS_SCRIPT') {
+    return getLocalShifts();
+  }
+
+  try {
+    const response = await fetch(GOOGLE_SCRIPT_URL);
+    const result = await response.json();
+
+    if (result.status === 'success' && Array.isArray(result.shifts)) {
+      const googleShifts = result.shifts;
+      const localShifts = getLocalShifts();
+
+      const pendingLocal = localShifts.filter(local => !local.synced);
+      
+      const combinedMap = new Map();
+      googleShifts.forEach(shift => combinedMap.set(String(shift.id), shift));
+      pendingLocal.forEach(shift => combinedMap.set(String(shift.id), shift));
+
+      const mergedShifts = Array.from(combinedMap.values()).sort((a, b) => b.id - a.id);
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedShifts));
+      return mergedShifts;
+    }
+  } catch (error) {
+    console.error('Помилка при зчитуванні з Google Таблиць:', error);
+  }
+
+  return getLocalShifts();
 };
