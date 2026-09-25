@@ -1,67 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Calendar, BarChart2 } from 'lucide-react';
 
-// Імпортуємо наші нові блоки
+// Імпортуємо вкладки
 import MainTab from './components/MainTab';
 import HistoryTab from './components/HistoryTab';
 import StatsTab from './components/StatsTab';
 
- // // // // // // // // // // // // // //
-import React, { useEffect, useState } from 'react';
-import { getLocalShifts, addShift, syncPendingShifts } from './services/googleSheets';
-import { Cloud, CloudOff, Check } from 'lucide-react'; // Іконки для статусу
+// Імпортуємо сервіс для роботи з Google Таблицями та localStorage
+import { 
+  getLocalShifts, 
+  sendShiftToGoogle, 
+  syncPendingShifts, 
+  fetchShiftsFromGoogle 
+} from './services/googleSheets';
 
-function App() {
-  const [shifts, setShifts] = useState([]);
-
-  useEffect(() => {
-    // Завантажуємо локальні дані
-    setShifts(getLocalShifts());
-
-    // Пробуємо відправити невідправлені записи при старті
-    syncPendingShifts();
-
-    // Авто-синхронізація при появі інтернету
-    const handleOnline = () => {
-      syncPendingShifts().then(() => setShifts(getLocalShifts()));
-    };
-
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
-  }, []);
-
-  // Хендлер збереження зміни з форми
-  const handleSaveShift = async (formData) => {
-    const updated = await addShift(formData);
-    setShifts(updated);
-  };
-
-  return (
-    <div>
-      {/* Ваш UI форми та списку shifts */}
-      {shifts.map(shift => (
-        <div key={shift.id} className="shift-card">
-          <span>{shift.date}: {shift.startTime} - {shift.endTime}</span>
-          
-          {/* Візуальний статус синхронізації */}
-          {shift.synced ? (
-            <span title="Збережено в Google Таблицю"><Check size={16} color="green" /></span>
-          ) : (
-            <span title="Збережено тільки локально (очікує мережу)"><CloudOff size={16} color="orange" /></span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
- // // // // // // // // // //
 export default function App() {
-  // --- БАЗА ДАНИХ ТА СТАН ---
-  const [sessions, setSessions] = useState(() => {
-    const saved = localStorage.getItem('work_sessions');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // --- СТАН ТА БАЗА ДАНИХ ---
+  const [sessions, setSessions] = useState(() => getLocalShifts());
   
   const [activeSession, setActiveSession] = useState(() => {
     const saved = localStorage.getItem('active_session');
@@ -70,8 +25,6 @@ export default function App() {
 
   const [currentTab, setCurrentTab] = useState('main'); 
   const [shiftType, setShiftType] = useState('regular'); 
-  
-  // Додаємо стан для вибору ролі (за замовчуванням 'sales' - Капітан Залу)
   const [selectedRole, setSelectedRole] = useState('sales');
 
   const [lunchMinutes, setLunchMinutes] = useState(0);
@@ -79,12 +32,34 @@ export default function App() {
   const [elapsedTime, setElapsedTime] = useState('00:00:00');
 
   const [notification, setNotification] = useState('');
-  
-  // Стейт для збереження сесії, яка зараз редагується в модальному вікні
   const [editingSession, setEditingSession] = useState(null);
 
+  // --- СИНХРОНІЗАЦІЯ ПРИ СТАРТІ ТА ВІДНОВЛЕННІ МЕРЕЖІ ---
   useEffect(() => {
-    localStorage.setItem('work_sessions', JSON.stringify(sessions));
+    async function initData() {
+      // 1. Спроба підтягнути невідправлені локальні дані
+      await syncPendingShifts();
+      
+      // 2. Спроба отримати свіжі дані з Google Таблиці
+      const freshShifts = await fetchShiftsFromGoogle();
+      setSessions(freshShifts);
+    }
+
+    initData();
+
+    // Слухач появи інтернету
+    const handleOnline = async () => {
+      await syncPendingShifts();
+      setSessions(getLocalShifts());
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
+  // --- СИНХРОНІЗАЦІЯ З LOCALSTORAGE ---
+  useEffect(() => {
+    localStorage.setItem('work_time_shifts', JSON.stringify(sessions));
   }, [sessions]);
 
   useEffect(() => {
@@ -126,37 +101,53 @@ export default function App() {
     setActiveSession(newSession);
   };
 
-  const endWork = () => {
+  const endWork = async () => {
     if (!activeSession) return;
     const now = new Date();
     const start = new Date(activeSession.startTime);
     const totalMinutes = Math.floor((now - start) / 60000);
     const cleanDuration = Math.max(0, totalMinutes - lunchMinutes);
 
-    setSessions([{
+    const completedSession = {
       ...activeSession,
       endTime: now.toISOString(),
       lunch: lunchMinutes,
       duration: cleanDuration,
-      comment: comment.trim()
-    }, ...sessions]);
+      comment: comment.trim(),
+      synced: false // За замовчуванням ще не синхронізовано
+    };
+
+    // 1. Одразу зберігаємо локально
+    const updatedSessions = [completedSession, ...sessions];
+    setSessions(updatedSessions);
 
     setActiveSession(null);
     setLunchMinutes(0);
     setComment('');
     
-    setNotification('✅ Зміну успішно збережено в архів!');
-    
+    setNotification('✅ Зміну збережено локально!');
+
+    // 2. Асинхронно відправляємо в Google Таблицю
+    if (navigator.onLine) {
+      await sendShiftToGoogle(completedSession);
+      // Оновлюємо стан після успішної синхронізації (synced стане true)
+      setSessions(getLocalShifts());
+      setNotification('✅ Зміну успішно збережено в Google Таблицю!');
+    }
+
     setTimeout(() => {
       setNotification('');
-    }, 2000);
+    }, 2500);
   };
 
   const deleteSession = (id) => {
-    if (confirm('Видалити цей запис?')) setSessions(sessions.filter(s => s.id !== id));
+    if (confirm('Видалити цей запис?')) {
+      const filtered = sessions.filter(s => s.id !== id);
+      setSessions(filtered);
+    }
   };
 
-  const updateSession = (updatedSession) => {
+  const updateSession = async (updatedSession) => {
     const start = new Date(updatedSession.startTime);
     const end = new Date(updatedSession.endTime);
     const totalMinutes = Math.floor((end - start) / 60000);
@@ -166,11 +157,18 @@ export default function App() {
       ...updatedSession,
       lunch: Number(updatedSession.lunch),
       duration: cleanDuration,
-      comment: updatedSession.comment.trim()
+      comment: updatedSession.comment.trim(),
+      synced: false // Позначаємо як невідправлені оновлення
     };
 
-    setSessions(sessions.map(s => s.id === updated.id ? updated : s));
+    const newSessions = sessions.map(s => s.id === updated.id ? updated : s);
+    setSessions(newSessions);
     
+    if (navigator.onLine) {
+      await sendShiftToGoogle(updated);
+      setSessions(getLocalShifts());
+    }
+
     setNotification('💾 Зміну успішно оновлено!');
     setTimeout(() => {
       setNotification('');
